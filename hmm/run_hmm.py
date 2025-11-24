@@ -4,8 +4,10 @@ from hmm.hmm_viterbi import viterbi_on_sequences
 
 data_path = None  # TODO: add data path
 
-# build sequences using 2018-19 and 2024-25 as test by season start year 2018, 2024
-train_states, train_obs, test_states, test_obs = build_sequences_from_csv(data_path)
+# build sequences using 2018-19 and 2024-25 as test set
+train_states, train_obs, test_states, test_obs = build_sequences_from_csv(
+    data_path, holdout_seasons=(2018, 2024)
+)
 
 # train supervised hmm (mle using known win/loss states)
 pi, A, B = train_supervised_hmm(train_states, train_obs, num_states=2)

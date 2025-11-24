@@ -134,11 +134,10 @@ def standardize_and_bin_games(season_to_games, season_stats, bin_edges):
     return season_sequences
 
 
-def build_sequences_from_csv(csv_path):
+def build_sequences_from_csv(csv_path, holdout_seasons):
     """
     builds train and test sequences from a csv file of games
     """
-    holdout_seasons = (2018, 2024)
     bin_edges = np.array(
         [-np.inf, -1.5, -0.5, 0.5, 1.5, np.inf],
         dtype=float,
