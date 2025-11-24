@@ -1,0 +1,122 @@
+import random
+from tqdm import tqdm
+import csv
+
+# will include "initial" and "transition" CPTs
+MODEL_CPTS = {}
+SEASON_LENGTH = 82
+DATA_PATH = "data/temp.csv"
+
+def sequence_accuracy(true_sequence, pred_sequence):
+    """
+    computes simple per-game accuracy across a single sequence
+    """
+    correct = 0
+    total = 0
+
+    T = min(len(true_sequence), len(pred_sequence))
+    for t in range(T):
+        if true_sequence[t] == pred_sequence[t]:
+            correct += 1
+        total += 1
+
+    if total == 0:
+        return 0.0
+    return correct / total
+
+def read_data(path):
+    team_results = {}
+    with open(path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row['IsRegular'] == '1':
+                team = row['team']
+                result = int(row['W/L'])
+                if team not in team_results:
+                    team_results[team] = []
+                team_results[team].append(result)
+
+    team_results = list(team_results.values())
+    return team_results
+
+# generates one bball season of random data for a single team
+def generate_season_data():
+    '''
+        generates random sequence of 82 1's or 0's to represent outcomes for a bball season
+    '''
+    return [random.choice([1, 0]) for _ in range(82)]
+
+# trains MLE model on all data
+def train_bigram(all_data):
+    '''
+        expects a 2d list of data
+        ex: [
+                [1, 0, 1, ...], # team record
+                [0, 0, 1, ...], 
+                ...
+            ]
+    '''
+    initial_cpt = {1: 0, 0: 0} # increment counts for each first game
+    transition_cpt = { # key represents previous game outcome
+        1: {1: 0, 0: 0}, # if previous game was a win, then count wins
+        0: {1: 0, 0: 0} # if previous game was a loss, then count wins
+    }
+    prev_game_counts = {1: 0, 0: 0} # total counts of previous games for normalization
+
+    for season in tqdm(all_data, desc="Processing team records"):
+        # count initial game
+        first_game = season[0]
+        initial_cpt[first_game] += 1
+        # count transitions
+        for i in range(1, len(season)):
+            prev_game = season[i - 1]
+            curr_game = season[i]
+            transition_cpt[prev_game][curr_game] += 1
+            prev_game_counts[prev_game] += 1
+
+    #print("SANITY CHECKS:")
+    #print("Initial CPT counts:", initial_cpt)
+    #print("Transition CPT counts:", transition_cpt)
+    #print("Previous game counts:", prev_game_counts)
+
+    # convert counts to probabilities
+    initial_cpt[1] /= len(all_data) # divide by number of seasons
+    initial_cpt[0] /= len(all_data)
+
+    transition_cpt[1][1] /= prev_game_counts[1]
+    transition_cpt[1][0] /= prev_game_counts[1]
+
+    transition_cpt[0][1] /= prev_game_counts[0]
+    transition_cpt[0][0] /= prev_game_counts[0]
+
+    MODEL_CPTS["initial"] = initial_cpt
+    MODEL_CPTS["transition"] = transition_cpt
+    print("completed training MLE model")
+
+def infer_season():
+    season_predictions = []
+
+    first_game_pred = random.choices([1, 0], weights=[MODEL_CPTS["initial"][1], MODEL_CPTS["initial"][0]])[0]
+    season_predictions.append(first_game_pred)
+
+    for game_num in range(1, SEASON_LENGTH): # calc for game index 1 to 81
+        prev_outcome = season_predictions[game_num - 1]
+        win_prob = MODEL_CPTS["transition"][prev_outcome][1]
+        loss_prob = MODEL_CPTS["transition"][prev_outcome][0]
+        outcome = random.choices([1, 0], weights=[win_prob, loss_prob])[0]
+        season_predictions.append(outcome)
+    return season_predictions
+
+if __name__ == "__main__":
+    data = read_data(DATA_PATH)
+    # mock_data = [generate_season_data() for _ in range(50)] # generate random data for 50 season long records
+
+    model = train_bigram(data) # TODO add param for degree for general handling of n previous games
+    print("MODEL CPTs:", MODEL_CPTS)
+
+    season_pred = infer_season()
+    mock_actual_season = generate_season_data()
+    print("season_pred", season_pred)
+    print("mock_actual_season", mock_actual_season)
+
+    print("accuracy:", sequence_accuracy(mock_actual_season, season_pred))
