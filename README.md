@@ -9,6 +9,6 @@ predicting basketball game outcomes using markov modeling
 
 ### running models (TODO)
 - run the unigram markov chain [trained with mle (maximum likelihood estimation model)]
-    - see `mle/`
+    - see `ngram/`
 - run the HMM (hidden markov model)
     - see `hmm/`
