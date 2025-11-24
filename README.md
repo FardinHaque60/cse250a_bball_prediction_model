@@ -7,8 +7,6 @@ predicting basketball game outcomes using markov modeling
 - activate using `source venv/bin/activate`
 - install requirements using `pip install -r requirements.txt`
 
-### running models (TODO)
-- run the unigram markov chain [trained with mle (maximum likelihood estimation model)]
-    - see `ngram/`
-- run the HMM (hidden markov model)
-    - see `hmm/`
+### running models
+- see `ngram/` to run the ngram markov chain models
+- see `hmm/` run the HMM (hidden markov model)
