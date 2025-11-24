@@ -1,0 +1,21 @@
+# hmm models for nba game outcomes trained using maximum likelihood estimation (MLE)
+
+- **files**
+  - `hmm_model.py`: supervised training utilities for a discrete-emission hmm
+    - `train_supervised_hmm()` trains the model using known win/loss states and binned observation symbols to estimate:
+      - initial state distribution `pi`
+      - state transition matrix `A`
+      - emission matrix `B`
+    - `sequence_accuracy()` computes simple per-game accuracy between true and predicted state sequences
+  - `hmm_viterbi.py`: implementation of the viterbi decoding algorithm
+    - `viterbi()` runs single-sequence viterbi in log space
+    - `viterbi_on_sequences()` applies viterbi to a list of observation sequences
+  - `preprocess.py`: data preprocessing and sequence construction from csv data
+    - reads per-game stats from a csv (see `data/README.md` for expected schema)
+    - computes per-season factor statistics
+    - standardizes four factors and bins them into discrete observation symbols
+    - groups games into sequences per team-season and splits into train / test sets
+  - `run_hmm.py`: simple script for cli training + evaluation
+    - uses `build_sequences_from_csv()` to construct sequences
+    - trains the supervised hmm
+    - decodes test sequences with viterbi and prints test accuracy

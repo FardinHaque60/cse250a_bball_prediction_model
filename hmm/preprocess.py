@@ -10,23 +10,11 @@ import numpy as np
 # per game object to store game data
 @dataclass
 class GameRecord:
-    season_start_year: int
+    season: int
     team: str
     date: datetime
     state: int  # 0 = loss, 1 = win
     factors: np.ndarray  # vector of format [e_fg, tov, orb, ft_fga]
-
-
-def infer_season(game_date):
-    """
-    infers nba season from a game date
-    example: oct 2000 - jun 2001 -> 2000
-    """
-    month = game_date.month
-    year = game_date.year
-    if month >= 10:
-        return year
-    return year - 1
 
 
 def read_games_from_csv(csv_path):
@@ -42,9 +30,9 @@ def read_games_from_csv(csv_path):
             if row.get("IsRegular", "0") != "1":
                 continue
 
-            # parse date and season
+            # parse date and read season from csv
             game_date = datetime.strptime(row["date"], "%m/%d/%Y")
-            season = infer_season(game_date)
+            season = int(row["Season"])
 
             team = row["team"]
             state = int(row["W/L"])
@@ -155,6 +143,8 @@ def build_sequences_from_csv(csv_path, holdout_seasons):
     train_obs: List[np.ndarray] = []
     test_states: List[np.ndarray] = []
     test_obs: List[np.ndarray] = []
+    train_seasons: List[int] = []
+    test_seasons: List[int] = []
 
     for season, payload in season_sequences.items():
         sequences = payload["sequences"]
@@ -166,15 +156,10 @@ def build_sequences_from_csv(csv_path, holdout_seasons):
             if season in holdout_seasons:
                 test_states.append(states)
                 test_obs.append(obs)
+                test_seasons.append(season)
             else:
                 train_states.append(states)
                 train_obs.append(obs)
+                train_seasons.append(season)
 
-    return train_states, train_obs, test_states, test_obs
-
-
-if __name__ == "__main__":
-    # simple sanity check on temp.csv-shaped data
-    train_y, train_x, test_y, test_x = build_sequences_from_csv("temp.csv")
-    print(f"num train sequences: {len(train_y)}")
-    print(f"num test sequences: {len(test_y)}")
+    return train_states, train_obs, test_states, test_obs, train_seasons, test_seasons
