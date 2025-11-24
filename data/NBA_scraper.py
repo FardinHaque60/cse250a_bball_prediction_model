@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, urljoin
 from playwright.async_api import async_playwright
 import time
+import os
 import signal
 import sys
 
@@ -11,10 +12,8 @@ LAST_REQUEST_TIME = 0
 MIN_SECONDS_BETWEEN_REQUESTS = 3  # <= stays below 20 req/min
 
 BASE = "https://www.basketball-reference.com"
-START_URL = "https://www.basketball-reference.com/boxscores/?month=10&day=22&year=2019"
-# set end_url to None to scrape until the hardcoded stop date, or set a specific date
-# example: "https://www.basketball-reference.com/boxscores/?month=12&day=31&year=2024"
-EARLY_EXIT = (2022, 7)
+START_URL = "https://www.basketball-reference.com/boxscores/?month=10&day=27&year=2015"
+EARLY_EXIT = (2019, 7)
 
 OUTPUT_FILE = "nba_games_four_factors_all_years.csv"
 rows = []
@@ -27,7 +26,10 @@ def save_data():
         return
 
     df = pd.DataFrame(rows)
-    df.to_csv(OUTPUT_FILE, index=False)
+    if not os.path.exists(OUTPUT_FILE):
+        df.to_csv(OUTPUT_FILE, index=False)
+    else:
+        df.to_csv(OUTPUT_FILE, mode="a", header=False, index=False)
     print(f"[SAVED] {len(rows)} rows written to {OUTPUT_FILE}")
 
 
