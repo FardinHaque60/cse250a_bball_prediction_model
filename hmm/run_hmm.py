@@ -13,7 +13,7 @@ if __name__ == "__main__":
         test_obs,
         train_seasons,
         test_seasons,
-    ) = build_sequences_from_csv(DATA_PATH, holdout_seasons=(2018, 2024))
+    ) = build_sequences_from_csv(DATA_PATH, holdout_seasons=(2019, 2024))
 
     # train supervised hmm (mle using known win/loss states)
     pi, A, B = train_supervised_hmm(train_states, train_obs, num_states=2)
