@@ -3,6 +3,9 @@
 - **raw scraping and combination**
   - `NBA_scraper.py`: script to scrape or download nba game data (regular season) from the source site
   - `csv_combiner.py`: helper to merge csv files from partials folder into a single combined csv used by the models
+  - `filter.py`: filter out playoff games from the combined csv
+  - `validator.py`: validate the combined csv with number of rows for each season
+  - `allseasons.csv`: the combined csv file of all regular season games
 
 - **csv schema**
   - `date`: game date in `%m/%d/%Y` format (for example `10/31/2000`)

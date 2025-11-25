@@ -57,7 +57,7 @@ def load_partial_rows(partials_dir):
                     # skip exact logical duplicates based on date, team, result
                     continue
 
-                game_date = datetime.strptime(date_str, "%m/%d/%Y")
+                game_date = datetime.strptime(date_str, "%Y-%m-%d")
                 season = infer_season(game_date)
 
                 full_row = {col: row[col] for col in expected_columns}
@@ -87,7 +87,7 @@ def write_combined_csv(rows, output_path):
 
     # sort by parsed date
     def parse_date(row):
-        return datetime.strptime(row["date"], "%m/%d/%Y")
+        return datetime.strptime(row["date"], "%Y-%m-%d")
 
     rows_sorted = sorted(rows, key=parse_date)
 
