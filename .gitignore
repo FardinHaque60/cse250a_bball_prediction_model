@@ -1,6 +1,3 @@
-# mac files
-.DS_Store
-
 # ignore partial data
 data/partials/
 
