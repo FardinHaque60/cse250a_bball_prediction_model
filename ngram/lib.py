@@ -26,12 +26,13 @@ def read_data(path):
         for row in reader:
             if row['IsRegular'] == '1':
                 team = row['team']
+                team += row['Season']
                 result = int(row['W/L'])
                 if team not in team_results:
                     team_results[team] = []
                 team_results[team].append(result)
 
-    team_results = list(team_results.values())
+    # team_results = list(team_results.values())
     return team_results
 
 # generates one bball season of random data for a single team

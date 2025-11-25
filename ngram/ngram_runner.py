@@ -5,12 +5,13 @@ from unigram import *
 from lib import read_data, sequence_accuracy, generate_season_data
 
 # constants
-DATA_PATH = "data/temp.csv" # path where data is located
+DATA_PATH = "data/scrape_results_2019_2022.csv" # path where data is located
 
 if __name__ == "__main__":
     # TODO change what data is used, mock or real data
-    # data = read_data(DATA_PATH) # real data
-    data = [generate_season_data() for _ in range(50)]  # mock data
+    raw_data = read_data(DATA_PATH) # real data
+    data = list(raw_data.values())
+    # data = [generate_season_data() for _ in range(50)]  # mock data
 
     # TODO change what model is used, can use train_unigram, train_bigram, train_trigram
     model = train_trigram(data)
