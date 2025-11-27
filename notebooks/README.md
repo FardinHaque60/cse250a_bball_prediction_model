@@ -5,6 +5,7 @@
   - uses helper functions from the `ngram` package (for example `train_unigram`, `train_bigram`, `train_trigram`)
   - loads season win/loss sequences derived from `data/allseasons.csv`
   - compares model predictions to actual seasons and reports sequence-level accuracy
+  - configure notebook constants to run for a specific clustering scheme found in `ngram/data_clustering.ipynb`
 
 - **run_hmm_models.ipynb**
   - demonstrates supervised training and evaluation of discrete-emission hmm models for nba game outcomes
