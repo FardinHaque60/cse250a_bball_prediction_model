@@ -31,7 +31,7 @@ def read_games_from_csv(csv_path):
                 continue
 
             # parse date and read season from csv
-            game_date = datetime.strptime(row["date"], "%m/%d/%Y")
+            game_date = datetime.strptime(row["date"], "%Y-%m-%d")
             season = int(row["Season"])
 
             team = row["team"]
