@@ -1,4 +1,20 @@
+from typing import List, Sequence
+
 import numpy as np
+
+
+def infer_num_symbols(obs_sequences: Sequence[np.ndarray]) -> int:
+    """
+    determines the number of discrete observation symbols present in the data
+    """
+    max_symbol = -1
+    for obs in obs_sequences:
+        if obs.size == 0:
+            continue
+        max_symbol = max(max_symbol, int(obs.max()))
+    if max_symbol < 0:
+        raise ValueError("no observations provided for emission estimation")
+    return max_symbol + 1
 
 
 def estimate_initial_and_transition(state_sequences, num_states=2, smoothing=1.0):
@@ -84,14 +100,7 @@ def train_supervised_hmm(
         (initial_probs, transition_probs, emission_probs)
     """
     if num_symbols is None:
-        max_symbol = -1
-        for obs in obs_sequences:
-            if obs.size == 0:
-                continue
-            max_symbol = max(max_symbol, int(obs.max()))
-        if max_symbol < 0:
-            raise ValueError("no observations provided for emission estimation")
-        num_symbols = max_symbol + 1
+        num_symbols = infer_num_symbols(obs_sequences)
 
     initial_probs, transition_probs = estimate_initial_and_transition(
         state_sequences=state_sequences,
@@ -108,6 +117,128 @@ def train_supervised_hmm(
     )
 
     return initial_probs, transition_probs, emission_probs
+
+
+def random_stochastic_matrix(num_rows, num_cols, rng):
+    samples = rng.random((num_rows, num_cols)) + 1e-6
+    samples /= samples.sum(axis=1, keepdims=True)
+    return samples
+
+
+def forward_backward(obs, emissions, initials, transitions):
+    """
+    scaled forward-backward pass for a single observation sequence
+    returns log likelihood, gammas, and xi accumulators
+    """
+    S = emissions.shape[0]
+    T = obs.size
+
+    alpha = np.zeros((S, T), dtype=float)
+    beta = np.zeros((S, T), dtype=float)
+    scales = np.zeros(T, dtype=float)
+
+    # initial step
+    alpha[:, 0] = initials * emissions[:, obs[0]]
+    scales[0] = alpha[:, 0].sum()
+    if scales[0] == 0.0:
+        scales[0] = 1e-12
+    alpha[:, 0] /= scales[0]
+
+    # forward pass
+    for t in range(1, T):
+        alpha[:, t] = (alpha[:, t - 1] @ transitions) * emissions[:, obs[t]]
+        scales[t] = alpha[:, t].sum()
+        if scales[t] == 0.0:
+            scales[t] = 1e-12
+        alpha[:, t] /= scales[t]
+
+    # backward pass
+    beta[:, -1] = 1.0
+    for t in range(T - 2, -1, -1):
+        beta[:, t] = transitions @ (emissions[:, obs[t + 1]] * beta[:, t + 1])
+        beta[:, t] /= scales[t + 1]
+
+    log_likelihood = -np.sum(np.log(scales))
+    gamma = alpha * beta
+    gamma /= np.maximum(gamma.sum(axis=0, keepdims=True), 1e-12)
+
+    xi_accum = np.zeros((S, S), dtype=float)
+    for t in range(T - 1):
+        xi = (
+            alpha[:, t][:, None]
+            * transitions
+            * emissions[:, obs[t + 1]][None, :]
+            * beta[:, t + 1][None, :]
+        )
+        xi_sum = xi.sum()
+        if xi_sum == 0.0:
+            xi_sum = 1e-12
+        xi /= xi_sum
+        xi_accum += xi
+
+    return log_likelihood, gamma, xi_accum
+
+
+def train_unsupervised_hmm(
+    obs_sequences,
+    num_states,
+    num_symbols=None,
+    smoothing=1e-3,
+    max_iters=50,
+    tol=1e-3,
+    random_state=None,
+):
+    """
+    trains a discrete hmm with baum-welch (unsupervised em)
+    returns (initial_probs, transition_probs, emission_probs, log_likelihood_trace)
+    """
+    if num_symbols is None:
+        num_symbols = infer_num_symbols(obs_sequences)
+
+    rng = np.random.default_rng(random_state)
+    initials = rng.dirichlet(np.ones(num_states))
+    transitions = random_stochastic_matrix(num_states, num_states, rng)
+    emissions = random_stochastic_matrix(num_states, num_symbols, rng)
+
+    log_likelihoods = []
+    prev_ll = -np.inf
+
+    for _ in range(max_iters):
+        init_accum = np.zeros(num_states, dtype=float)
+        trans_accum = np.zeros((num_states, num_states), dtype=float)
+        emit_accum = np.zeros((num_states, num_symbols), dtype=float)
+        total_ll = 0.0
+
+        for obs in obs_sequences:
+            if obs.size == 0:
+                continue
+            ll, gamma, xi = forward_backward(
+                obs=obs,
+                emissions=emissions,
+                initials=initials,
+                transitions=transitions,
+            )
+            total_ll += ll
+            init_accum += gamma[:, 0]
+            trans_accum += xi
+            for t, sym in enumerate(obs):
+                emit_accum[:, sym] += gamma[:, t]
+
+        initials = init_accum + smoothing
+        initials /= initials.sum()
+
+        transitions = trans_accum + smoothing
+        transitions /= transitions.sum(axis=1, keepdims=True)
+
+        emissions = emit_accum + smoothing
+        emissions /= emissions.sum(axis=1, keepdims=True)
+
+        log_likelihoods.append(total_ll)
+        if abs(total_ll - prev_ll) < tol:
+            break
+        prev_ll = total_ll
+
+    return initials, transitions, emissions, log_likelihoods
 
 
 def sequence_accuracy(true_sequences, pred_sequences):
@@ -128,3 +259,45 @@ def sequence_accuracy(true_sequences, pred_sequences):
         return 0.0
 
     return correct / total
+
+
+def map_hidden_states_to_outcomes(
+    hidden_sequences, true_sequences, num_hidden_states, fallback_label=None
+):
+    """
+    derives a mapping from hidden states to observed win/loss labels
+    """
+    counts = np.zeros((num_hidden_states, 2), dtype=float)
+    global_counts = np.zeros(2, dtype=float)
+
+    for hidden, true in zip(hidden_sequences, true_sequences):
+        if hidden.size == 0 or true.size == 0:
+            continue
+        T = min(hidden.size, true.size)
+        h = hidden[:T]
+        t = true[:T]
+        counts[h, t] += 1.0
+        global_counts += np.bincount(t, minlength=2)
+
+    if fallback_label is None:
+        fallback_label = 0 if global_counts[0] >= global_counts[1] else 1
+
+    mapping = np.full(num_hidden_states, fallback_label, dtype=int)
+    for state in range(num_hidden_states):
+        if counts[state].sum() == 0.0:
+            continue
+        mapping[state] = int(np.argmax(counts[state]))
+    return mapping
+
+
+def convert_hidden_to_observed(hidden_sequences, mapping):
+    """
+    applies a hidden->observed mapping to a list of sequences
+    """
+    mapped: List[np.ndarray] = []
+    for seq in hidden_sequences:
+        if seq.size == 0:
+            mapped.append(seq.copy())
+            continue
+        mapped.append(mapping[seq])
+    return mapped

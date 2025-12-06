@@ -74,11 +74,12 @@ def compute_season_factor_stats(season_to_games):
     return stats
 
 
-def standardize_and_bin_games(season_to_games, season_stats, bin_edges):
+def standardize_and_bin_games(season_to_games, season_stats, num_bins):
     """
     computes per-game z-scores per season and bins into discrete observation symbols
     """
-    season_sequences: Dict[int, Dict[str, List[Tuple[np.ndarray, np.ndarray]]]] = {}
+    raw_weighted: Dict[int, List[Tuple[np.ndarray, np.ndarray]]] = {}
+    all_weighted: List[np.ndarray] = []
 
     for season, games in season_to_games.items():
         mean_vec, std_vec = season_stats[season]
@@ -109,34 +110,49 @@ def standardize_and_bin_games(season_to_games, season_stats, bin_edges):
             # dean oliver weights: shooting 40, turnovers 25, rebounding 20, ft 15
             weighted_z = 0.4 * z_e_fg + 0.25 * z_tov + 0.2 * z_orb + 0.15 * z_ft_fga
 
-            # bin the weighted z-score into discrete symbols
-            # np.digitize returns indices in 1..len(bin_edges); we shift to 0-based
-            obs_symbols = np.digitize(weighted_z, bin_edges, right=False) - 1
+            team_sequences.append((states, weighted_z))
+            all_weighted.append(weighted_z)
 
-            team_sequences.append((states, obs_symbols))
+        raw_weighted[season] = team_sequences
+
+    if not all_weighted:
+        return {}, np.array([])
+
+    concatenated = np.concatenate(all_weighted, axis=0)
+    quantile_targets = np.linspace(0.0, 1.0, num_bins + 1)
+    quantile_edges = np.quantile(concatenated, quantile_targets)
+
+    # enforce open-ended buckets and strictly increasing edges
+    quantile_edges[0] = -np.inf
+    quantile_edges[-1] = np.inf
+    for idx in range(1, len(quantile_edges) - 1):
+        if quantile_edges[idx] <= quantile_edges[idx - 1]:
+            quantile_edges[idx] = np.nextafter(quantile_edges[idx - 1], float("inf"))
+
+    season_sequences: Dict[int, Dict[str, List[Tuple[np.ndarray, np.ndarray]]]] = {}
+    for season, team_sequences in raw_weighted.items():
+        discretized_sequences: List[Tuple[np.ndarray, np.ndarray]] = []
+        for states, weighted_z in team_sequences:
+            obs_symbols = np.digitize(weighted_z, quantile_edges, right=False) - 1
+            discretized_sequences.append((states, obs_symbols))
 
         season_sequences[season] = {
-            "sequences": team_sequences,
+            "sequences": discretized_sequences,
         }
 
-    return season_sequences
+    return season_sequences, quantile_edges
 
 
-def build_sequences_from_csv(csv_path, holdout_seasons):
+def build_sequences_from_csv(csv_path, holdout_seasons, num_bins):
     """
     builds train and test sequences from a csv file of games
     """
-    bin_edges = np.array(
-        [-np.inf, -1.5, -0.5, 0.5, 1.5, np.inf],
-        dtype=float,
-    )
-
     season_to_games = read_games_from_csv(csv_path)
     season_stats = compute_season_factor_stats(season_to_games)
-    season_sequences = standardize_and_bin_games(
+    season_sequences, _ = standardize_and_bin_games(
         season_to_games=season_to_games,
         season_stats=season_stats,
-        bin_edges=bin_edges,
+        num_bins=num_bins,
     )
 
     train_states: List[np.ndarray] = []
