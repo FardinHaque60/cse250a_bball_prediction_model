@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
-# Add project root to path
 PROJECT_ROOT = Path(".").resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -27,9 +26,9 @@ def optimize_weights():
         mean_vec, std_vec = season_stats[season]
 
         for g in games:
-            # Z-score
+            # z-score the factors
             z_factors = (g.factors - mean_vec) / std_vec
-            # Flip TOV
+            # flip sign of TOV
             z_factors[1] = -z_factors[1]
 
             X_list.append(z_factors)
@@ -41,14 +40,14 @@ def optimize_weights():
     print(f"Training Logistic Regression on {len(X)} games...")
     clf = LogisticRegression(
         fit_intercept=False
-    )  # We want just the weights for the factors
+    )  # we want just the weights for the factors
     clf.fit(X, y)
 
     print("Learned Coefficients:")
     factors = ["eFG%", "TOV%", "ORB%", "FT/FGA"]
     weights = clf.coef_[0]
 
-    # Normalize weights so they sum to 1 (like Dean Oliver's roughly sum to 1: 0.4+0.25+0.2+0.15 = 1.0)
+    # normalize weights so they sum to 1
     norm_weights = weights / np.sum(np.abs(weights))
 
     print(f"Optimized Weights: {norm_weights}")
