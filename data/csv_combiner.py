@@ -29,8 +29,6 @@ def load_partial_rows(partials_dir):
         "TOV%",
         "ORB%",
         "FT/FGA",
-        "Pace",
-        "ORtg",
         "IsRegular",
     ]
 
@@ -79,8 +77,6 @@ def write_combined_csv(rows, output_path):
         "TOV%",
         "ORB%",
         "FT/FGA",
-        "Pace",
-        "ORtg",
         "IsRegular",
         "Season",
     ]

@@ -1,21 +1,35 @@
-# hmm models for nba game outcomes trained using maximum likelihood estimation (MLE)
+# hmm models for nba game outcomes
+
+- **overview**
+  - supervised and unsupervised discrete-emission hmm models for predicting nba game outcomes (win/loss) from four-factor statistics.
+  - data is read from `data/allseasons.csv`, preprocessed into team-season sequences, then used to train and evaluate hmm models.
 
 - **files**
-  - `hmm_model.py`: supervised training utilities for a discrete-emission hmm
-    - `train_supervised_hmm()` trains the model using known win/loss states and binned observation symbols to estimate:
-      - initial state distribution `pi`
-      - state transition matrix `A`
-      - emission matrix `B`
-    - `sequence_accuracy()` computes simple per-game accuracy between true and predicted state sequences
-  - `hmm_viterbi.py`: implementation of the viterbi decoding algorithm
-    - `viterbi()` runs single-sequence viterbi in log space
-    - `viterbi_on_sequences()` applies viterbi to a list of observation sequences
-  - `preprocess.py`: data preprocessing and sequence construction from csv data
-    - reads per-game stats from a csv (see `data/README.md` for expected schema)
-    - computes per-season factor statistics
-    - standardizes four factors and bins them into discrete observation symbols
-    - groups games into sequences per team-season and splits into train / test sets
-  - `run_hmm.py`: simple script for cli training + evaluation
-    - uses `build_sequences_from_csv()` to construct sequences
-    - trains the supervised hmm
-    - decodes test sequences with viterbi and prints test accuracy
+  - `hmm_model.py`
+    - utilities for training and evaluating discrete-emission hmms
+    - `infer_num_symbols(obs_sequences)`: infers the number of discrete observation symbols present in the data
+    - `estimate_initial_and_transition(state_sequences, num_states, smoothing)`: supervised mle estimate of initial state distribution and transition matrix
+    - `estimate_emissions(state_sequences, obs_sequences, num_states, num_symbols, smoothing)`: supervised mle estimate of emission probabilities
+    - `train_supervised_hmm(state_sequences, obs_sequences, num_states, num_symbols=None, smoothing)`: trains a supervised hmm (returns `(pi, A, B)`)
+    - `train_unsupervised_hmm(obs_sequences, num_states, num_symbols=None, smoothing, max_iters, tol, random_state)`: trains an hmm with baum–welch (unsupervised em), returning `(pi, A, B, log_likelihood_trace)`
+    - `sequence_accuracy(true_sequences, pred_sequences)`: computes per-game classification accuracy across sequences
+    - `map_hidden_states_to_outcomes(hidden_sequences, true_sequences, num_hidden_states, fallback_label=None)`: learns a mapping from hidden states to observed win/loss labels
+    - `convert_hidden_to_observed(hidden_sequences, mapping)`: applies a hidden→observed mapping to a list of sequences
+  - `hmm_viterbi.py`
+    - implementation of viterbi decoding in log space
+    - `viterbi(emissions, initials, observations, transitions)`: runs single-sequence viterbi
+    - `viterbi_on_sequences(emissions, initials, transitions, obs_sequences)`: applies viterbi to a list of observation sequences
+  - `preprocess.py`
+    - data preprocessing and sequence construction from `data/allseasons.csv`
+    - defines four-factor weights:
+      - `DEAN_OLIVER_WEIGHTS`: baseline (0.40, 0.25, 0.20, 0.15)
+      - `OPTIMIZED_WEIGHTS`: learned via logistic regression (see `optimize_weights.py`)
+    - `read_games_from_csv(csv_path)`: reads regular-season games and groups them by season into `GameRecord` objects
+    - `compute_season_factor_stats(season_to_games)`: computes per-season mean and std for the four factors
+    - `standardize_and_bin_games(season_to_games, season_stats, num_bins, dean=False)`: z-scores four factors per season, applies either dean or optimized weights, and bins into discrete observation symbols
+    - `build_sequences_from_csv(csv_path, holdout_seasons, num_bins, dean=False)`: builds train/test sequences and season lists for the hmm models
+  - `optimize_weights.py`
+    - script to learn four-factor weights with logistic regression
+    - uses `read_games_from_csv` and `compute_season_factor_stats` to construct per-game z-scored factors
+    - trains a logistic regression model (win/loss as labels) on all non-holdout seasons
+    - prints and returns normalized factor weights that can be copied back into `preprocess.py` as `OPTIMIZED_WEIGHTS`

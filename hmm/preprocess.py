@@ -6,6 +6,12 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
+# dean oliver weights: shooting 40, turnovers 25, rebounding 20, ft 15
+DEAN_OLIVER_WEIGHTS = np.array([0.4, 0.25, 0.2, 0.15])
+
+# learned via logistic regression on the dataset
+OPTIMIZED_WEIGHTS = np.array([0.4962, 0.1721, 0.1583, 0.1734])
+
 
 # per game object to store game data
 @dataclass
@@ -74,10 +80,15 @@ def compute_season_factor_stats(season_to_games):
     return stats
 
 
-def standardize_and_bin_games(season_to_games, season_stats, num_bins):
+def standardize_and_bin_games(season_to_games, season_stats, num_bins, dean=False):
     """
     computes per-game z-scores per season and bins into discrete observation symbols
     """
+    if dean:
+        weights = DEAN_OLIVER_WEIGHTS
+    else:
+        weights = OPTIMIZED_WEIGHTS
+
     raw_weighted: Dict[int, List[Tuple[np.ndarray, np.ndarray]]] = {}
     all_weighted: List[np.ndarray] = []
 
@@ -102,13 +113,10 @@ def standardize_and_bin_games(season_to_games, season_stats, num_bins):
             z_factors = (raw_factors - mean_vec[None, :]) / std_vec[None, :]
 
             # flip sign of turnovers so that higher is better for the weighted score
-            z_e_fg = z_factors[:, 0]
-            z_tov = -z_factors[:, 1]
-            z_orb = z_factors[:, 2]
-            z_ft_fga = z_factors[:, 3]
+            z_factors[:, 1] = -z_factors[:, 1]
 
-            # dean oliver weights: shooting 40, turnovers 25, rebounding 20, ft 15
-            weighted_z = 0.4 * z_e_fg + 0.25 * z_tov + 0.2 * z_orb + 0.15 * z_ft_fga
+            # weighted z-scores
+            weighted_z = np.dot(z_factors, weights)
 
             team_sequences.append((states, weighted_z))
             all_weighted.append(weighted_z)
@@ -143,7 +151,7 @@ def standardize_and_bin_games(season_to_games, season_stats, num_bins):
     return season_sequences, quantile_edges
 
 
-def build_sequences_from_csv(csv_path, holdout_seasons, num_bins):
+def build_sequences_from_csv(csv_path, holdout_seasons, num_bins, dean=False):
     """
     builds train and test sequences from a csv file of games
     """
@@ -153,6 +161,7 @@ def build_sequences_from_csv(csv_path, holdout_seasons, num_bins):
         season_to_games=season_to_games,
         season_stats=season_stats,
         num_bins=num_bins,
+        dean=dean,
     )
 
     train_states: List[np.ndarray] = []

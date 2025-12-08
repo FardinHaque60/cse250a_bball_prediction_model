@@ -102,12 +102,10 @@ def parse_four_factors(soup: BeautifulSoup):
             return td.get_text(strip=True) if td else None
 
         ff[team_abbr] = {
-            "pace": get("pace"),
             "eFG%": get("efg_pct"),
             "TOV%": get("tov_pct"),
             "ORB%": get("orb_pct"),
             "FT/FGA": get("ft_rate"),
-            "ORtg": get("off_rtg"),
         }
 
     return ff
@@ -152,6 +150,9 @@ async def scrape_game(page, game_url: str, date_str: str):
     else:
         is_regular = 1
 
+    if is_regular == 0:
+        return
+
     filename = game_url.split("/")[-1]
     home_abbr = filename.split(".")[0][-3:]
 
@@ -173,8 +174,6 @@ async def scrape_game(page, game_url: str, date_str: str):
             "TOV%": ff[home_abbr]["TOV%"],
             "ORB%": ff[home_abbr]["ORB%"],
             "FT/FGA": ff[home_abbr]["FT/FGA"],
-            "Pace": ff[home_abbr]["pace"],
-            "ORtg": ff[home_abbr]["ORtg"],
             "IsRegular": is_regular,
         }
     )
@@ -189,8 +188,6 @@ async def scrape_game(page, game_url: str, date_str: str):
             "TOV%": ff[away_abbr]["TOV%"],
             "ORB%": ff[away_abbr]["ORB%"],
             "FT/FGA": ff[away_abbr]["FT/FGA"],
-            "Pace": ff[away_abbr]["pace"],
-            "ORtg": ff[away_abbr]["ORtg"],
             "IsRegular": is_regular,
         }
     )

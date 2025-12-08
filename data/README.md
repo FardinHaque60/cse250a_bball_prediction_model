@@ -3,7 +3,6 @@
 - **raw scraping and combination**
   - `NBA_scraper.py`: script to scrape or download nba game data (regular season) from the source site
   - `csv_combiner.py`: helper to merge csv files from partials folder into a single combined csv used by the models
-  - `filter.py`: filter out playoff games from the combined csv
   - `validator.py`: validate the combined csv with number of rows for each season
   - `allseasons.csv`: the combined csv file of all regular season games
 
@@ -15,6 +14,5 @@
   - `TOV%`: turnover percentage
   - `ORB%`: offensive rebounding percentage
   - `FT/FGA`: free throws per field goal attempt
-  - `Pace`, `ORtg`: optional additional stats not directly used by the hmm
   - `IsRegular`: `1` for regular season games, `0` otherwise
   - `Season`: season start year as an integer (for example `2000` for the 2000–01 season)
