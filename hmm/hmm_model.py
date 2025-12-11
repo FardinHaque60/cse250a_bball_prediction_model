@@ -17,7 +17,7 @@ def infer_num_symbols(obs_sequences: Sequence[np.ndarray]) -> int:
     return max_symbol + 1
 
 
-def estimate_initial_and_transition(state_sequences, num_states=2, smoothing=1.0):
+def estimate_initial_and_transition(state_sequences, num_states, smoothing=1.0):
     """
     estimates initial state distribution and transition matrix via supervised mle
     state_sequences: list of 1d arrays of ints in [0, num_states)
@@ -90,7 +90,7 @@ def estimate_emissions(
 def train_supervised_hmm(
     state_sequences,
     obs_sequences,
-    num_states=2,
+    num_states,
     num_symbols=None,
     smoothing=1.0,
 ):
